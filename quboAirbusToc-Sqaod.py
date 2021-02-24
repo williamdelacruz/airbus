@@ -5,8 +5,8 @@ import sys
 import itertools
 import random
 import os
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
+#import matplotlib.pyplot as plt
+#import matplotlib.patches as mpatches
 from random import randint
 from random import gauss
 import pickle
@@ -392,23 +392,23 @@ def PlotBarContainers(solution, Npos, mass_x, mass_y, mass_z):
             if solution[key0] == 1 or solution[key1] == 1:
                 masa_c[j] = 'blue'
 
-    fig = plt.figure()
-    plt.xlabel('Position')
-    plt.ylabel('Accumulated Mass')
+    #fig = plt.figure()
+    #plt.xlabel('Position')
+    #plt.ylabel('Accumulated Mass')
 
 
-    plt.bar(pos, masa, color=masa_c, edgecolor='black')
-    plt.bar(pos, masa_top, bottom=masa, edgecolor='black', color='yellow')
-    caja1 = mpatches.Patch(color='red', label='Type 1')
-    caja2 = mpatches.Patch(color='yellow', label='Type 2')
-    caja3 = mpatches.Patch(color='blue', label='Type 3')
-    plt.legend(handles=[caja1, caja2, caja3], loc='upper center', ncol=3)
-    plt.suptitle('Total mass ' + str(sum(masa)+sum(masa_top)))
-    #plt.grid()
-    ax = fig.gca()
-    ax.set_xticks(pos)
-    fig.savefig("test.png")
-    plt.show()
+    #plt.bar(pos, masa, color=masa_c, edgecolor='black')
+    #plt.bar(pos, masa_top, bottom=masa, edgecolor='black', color='yellow')
+    #caja1 = mpatches.Patch(color='red', label='Type 1')
+    #caja2 = mpatches.Patch(color='yellow', label='Type 2')
+    #caja3 = mpatches.Patch(color='blue', label='Type 3')
+    #plt.legend(handles=[caja1, caja2, caja3], loc='upper center', ncol=3)
+    #plt.suptitle('Total mass ' + str(sum(masa)+sum(masa_top)))
+    ##plt.grid()
+    #ax = fig.gca()
+    #ax.set_xticks(pos)
+    #fig.savefig("test.png")
+    #plt.show()
 
 
 
