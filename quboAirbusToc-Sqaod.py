@@ -11,6 +11,7 @@ from random import randint
 from random import gauss
 import pickle
 import sqaod as sq
+import time
 
 from dwave_qbsolv import QBSolv
 import neal
@@ -1809,9 +1810,9 @@ def quboEtotal(mass_x, mass_y, mass_z, Npos, Wp, xcgmin, xcgmax, xcge, We, xcgt,
 #
 def main_sqaod():
     # Parametros
-    Npos = 10
-    Wp = 260
-    Len = 10
+    Npos = 6
+    Wp = 200
+    Len = 6
     We = 120
     S0 = 220
     xcgmin = -0.1*Len
@@ -1825,7 +1826,7 @@ def main_sqaod():
 
     # Path to instances
     #
-    instance_name = "8-4-3"
+    instance_name = "3-3-3"
     path_instances = "instancias/" + instance_name + "/"
     path_resultados = "resultados-qubo/" + instance_name + "/"
 
@@ -1852,7 +1853,7 @@ def main_sqaod():
             find_max_val = True
 
         # Upper bound for the penalty weight
-        Weight = (sum(mass_x) + sum(mass_y) + sum(mass_z))*Npos
+        Weight = (sum(mass_x) + sum(mass_y) + sum(mass_z))
 
 
         # -1 for maximization and, +1 for minimization
@@ -1877,49 +1878,50 @@ def main_sqaod():
         #numvars = writequbo(Q, filename+'-allocation', constant)
 
         numvars = problem_size(Q)
-
         print('\nNumber of variables: {}'.format(numvars))
 
-
         # CPLEX format
-        writequbo_cplex(Q, filename+'-allocation', constant)
+        #writequbo_cplex(Q, filename+'-allocation', constant)
 
         if sqaod_exec==0:
             continue
 
 
-        # - - - - - - - - - - - - - - - - - - - - -
-        #              Main program
-        # - - - - - - - - - - - - - - - - - - - - -
+        # - - - - - - - - - - - - - - - -
+        #     Call to sqaod solver
+        # - - - - - - - - - - - - - - - -
 
-        print('\n\n# # # # # # # # # # # Main program # # # # # # # # # # #\n\n')
+        # 1. set problem.  As an example, a matrix filled with 1. is used.
+        W = dict_to_array(Q, numvars)
+
+        # 2. choosing solver .
+        sol = sq.cpu # use CPU annealer
+        # If you want to use CUDA, check CUDA availability with sq.is_cuda_available().
+        if sq.is_cuda_available() :
+            import sqaod.cuda
+            sol = sqaod.cuda
+
+
+
+
+
+        # - - - - - - - - - - - - - - - - - - -
+        #             Repetitions
+        # - - - - - - - - - - - - - - - - - - -
 
         # Number of calls to SimulatedAnnealingSampler
-        num_calls = 10000
+        num_calls = 1000
+        count_solutions = 0
+
+        start_time = time.time()
 
         for k in range(num_calls):
-            #print('#{}'.format(k+1))
-
-            # - - - - - - - - - - - - - - - -
-            # Call to sqaod solver
-            # - - - - - - - - - - - - - - - -
-
-            # 1. set problem.  As an example, a matrix filled with 1. is used.
-            W = dict_to_array(Q, numvars)
-            #W = np.array([[-100000, 10], [10, -100000]])
-
-            # 2. choosing solver .
-            sol = sq.cpu # use CPU annealer
-            # If you want to use CUDA, check CUDA availability with sq.is_cuda_available().
-            if sq.is_cuda_available() :
-                import sqaod.cuda
-                sol = sqaod.cuda
+            print('#{}'.format(k))
 
             # 3. instanciate solver
             ann = sol.dense_graph_annealer()
 
             # 4. (optional) set random seed.
-
             #seed = random.randrange(sys.maxsize)
             #rng = random.Random(seed)
             #print("Seed was:", seed)
@@ -1928,21 +1930,20 @@ def main_sqaod():
             # 5. Setting problem
             # Setting W and optimize direction (minimize or maxminize)
             # n_trotters is implicitly set to N/4 by default.
-            ann.set_qubo(W, sq.minimize)
+            #ann.set_qubo(W, sq.minimize)
 
             # 6. set preferences,
             # The following line set n_trotters is identical to the dimension of W.
-            ann.set_preferences(n_trotters = W.shape[0])
+            #ann.set_preferences(n_trotters = W.shape[0])
 
             # altternative for 4. and 5.
             # W, optimize direction and n_trotters are able to be set on instantiation.
-
-            # ann = sol.dense_graph_annealer(W, sq.minimize, n_trotters = W.shape[0])
+            ann = sol.dense_graph_annealer(W, sq.minimize, n_trotters = W.shape[0])
 
             # 7. get ising model paramters. (optional)
             # When W and optimize dir are set, ising hamiltonian of h, J and c are caluclated.
             # By using get_hamiltonian() to get these values.
-            h, J, c = ann.get_hamiltonian()
+            #h, J, c = ann.get_hamiltonian()
             #print('h={}\n'.format(h))
             #print('J={}\n'.format(J))
             #print('c={}\n'.format(c))
@@ -1950,7 +1951,8 @@ def main_sqaod():
             # 8. showing preferences (optional)
             # preferences of solvers are obtained by calling get_preference().
             # preferences is always repeseted as python dictionay object.
-            #print(ann.get_preferences())
+            #print('\n{}'.format(ann.get_preferences()))
+
 
             # 9. prepare to run anneal. Annealers must be prepared
             #  before calling randomize_spin() and anneal_one_step().
@@ -1960,10 +1962,10 @@ def main_sqaod():
             ann.randomize_spin()
 
             # 11. annealing
-
             Ginit = 5.
             Gfin = 0.001
             beta = 1. / 0.02
+            beta = 80
             tau = 0.99
 
             # annealing loop
@@ -1995,15 +1997,16 @@ def main_sqaod():
             # 16. show the number of solutions that has the same energy of the best E.
             #print('Number of solutions : {}'.format(len(summary.xlist)))
 
+
             # 17. show solutions. Max number of x is limited to 4.
-            nToShow = min(len(summary.xlist), 4)
-            for idx in range(nToShow) :
+
+            for idx in range(len(summary.xlist)) :
                 resultval, energy_sol = validationSol(mass_x, mass_y, mass_z, Npos, Wp, summary.xlist[idx], constant, 0)
                 if resultval==0:
                     qubo_energy = summary.E + constant
 
-                    #if abs(qubo_energy)==energy_sol:
-                    if 1:
+                    if abs(qubo_energy)==energy_sol:
+                    #if 1:
                         print('\n Iteration {}\n'.format(k+1))
                         print (summary.xlist[idx])
                         print('\nValid solution payload={}\n'.format(-energy_sol))
@@ -2019,7 +2022,10 @@ def main_sqaod():
                         print('\nE={}\n'.format(qubo_energy))
                         PlotBarContainers(summary.xlist[idx], Npos, mass_x, mass_y, mass_z)
 
+                        count_solutions = count_solutions + 1
 
+        print('count_solutions = {}, with beta = {}'.format(count_solutions, beta))
+        print("--- %s seconds ---" % (time.time() - start_time))
 
 
 #  Solve the problem using simulated annealing (D-Wave qbsolv)
