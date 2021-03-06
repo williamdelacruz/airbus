@@ -5,8 +5,8 @@ import sys
 import itertools
 import random
 import os
-#import matplotlib.pyplot as plt
-#import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 from random import randint
 from random import gauss
 import pickle
@@ -393,23 +393,23 @@ def PlotBarContainers(solution, Npos, mass_x, mass_y, mass_z):
             if solution[key0] == 1 or solution[key1] == 1:
                 masa_c[j] = 'blue'
 
-    #fig = plt.figure()
-    #plt.xlabel('Position')
-    #plt.ylabel('Accumulated Mass')
+    fig = plt.figure()
+    plt.xlabel('Position')
+    plt.ylabel('Accumulated Mass')
 
 
-    #plt.bar(pos, masa, color=masa_c, edgecolor='black')
-    #plt.bar(pos, masa_top, bottom=masa, edgecolor='black', color='yellow')
-    #caja1 = mpatches.Patch(color='red', label='Type 1')
-    #caja2 = mpatches.Patch(color='yellow', label='Type 2')
-    #caja3 = mpatches.Patch(color='blue', label='Type 3')
-    #plt.legend(handles=[caja1, caja2, caja3], loc='upper center', ncol=3)
-    #plt.suptitle('Total mass ' + str(sum(masa)+sum(masa_top)))
-    ##plt.grid()
-    #ax = fig.gca()
-    #ax.set_xticks(pos)
-    #fig.savefig("test.png")
-    #plt.show()
+    plt.bar(pos, masa, color=masa_c, edgecolor='black')
+    plt.bar(pos, masa_top, bottom=masa, edgecolor='black', color='yellow')
+    caja1 = mpatches.Patch(color='red', label='Type 1')
+    caja2 = mpatches.Patch(color='yellow', label='Type 2')
+    caja3 = mpatches.Patch(color='blue', label='Type 3')
+    plt.legend(handles=[caja1, caja2, caja3], loc='upper center', ncol=3)
+    plt.suptitle('Total mass ' + str(sum(masa)+sum(masa_top)))
+    #plt.grid()
+    ax = fig.gca()
+    ax.set_xticks(pos)
+    fig.savefig("test.png")
+    plt.show()
 
 
 
@@ -588,7 +588,6 @@ def leer_archivo(archivo):
 #
 def crear_masas(archivo):
 
-    print('\n############\nReading instance: {}\n'.format(archivo))
     containers = leer_archivo(archivo)
 
     # Crea una lista de containers con enteros
@@ -1086,7 +1085,7 @@ def quboPayload(Q1, mass_x, mass_y, mass_z, Npos, Wp, offset, const, Weight):
 
     # Numero de variables slack para representar Wp
     nbits = math.ceil(math.log2(Wp))
-    print('\nBinary expansion of Wp={} is {}'.format(Wp, nbits))
+    #print('\nBinary expansion of Wp={} is {}'.format(Wp, nbits))
 
 
     # Indexes for variables x_ij, y_ij, z_ij1
@@ -1765,8 +1764,6 @@ def quboEtotal(mass_x, mass_y, mass_z, Npos, Wp, xcgmin, xcgmax, xcge, We, xcgt,
     # Definicion del diccionario Q.
     Q = {}
 
-    print('\nConstructing qubo function ...')
-
     constant = 0;
     offset = 0
 
@@ -1774,13 +1771,10 @@ def quboEtotal(mass_x, mass_y, mass_z, Npos, Wp, xcgmin, xcgmax, xcge, We, xcgt,
     Q, constant, offset = quboAllocation(Q, mass_x, mass_y, mass_z, Npos, offset, constant)
 
     # Scale penalty terms
-    Q, constant = quboScale(Q, 100, constant)
+    Q, constant = quboScale(Q, 1/2, constant)
 
     # Eq. 28
-    Q, constant, offset = quboPayload(Q, mass_x, mass_y, mass_z, Npos, Wp, offset, constant, 1/100)
-
-    # Scale penalty terms
-    #Q, constant = quboScale(Q, 1/1000, constant)
+    Q, constant, offset = quboPayload(Q, mass_x, mass_y, mass_z, Npos, Wp, offset, constant, 1/1000)
 
     # Eq. 30
     #Q, constant, offset = quboGravityLeft(Q, mass_x, mass_y, mass_z, Npos, xcgmin, xcge, We, Len, offset, constant)
@@ -1813,7 +1807,8 @@ def quboEtotal(mass_x, mass_y, mass_z, Npos, Wp, xcgmin, xcgmax, xcge, We, xcgt,
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  Perform a sampling of the objective and penalty functions
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def sampling(Npos_, Wp_, Len_, We_, S0_, xcmin_, xcgmax_, xcge_, xcgt_, instance_name_):
+def sampling(Npos_, Wp_, Len_, We_, S0_, xcgmin_, xcgmax_, xcge_, xcgt_,
+            numvars, constant, instance_name_, num_instance):
     # Parametros
     Npos = Npos_
     Wp = Wp_
@@ -1824,89 +1819,46 @@ def sampling(Npos_, Wp_, Len_, We_, S0_, xcmin_, xcgmax_, xcge_, xcgt_, instance
     xcgmax = xcgmax_
     xcge = xcge_
     xcgt = xcgt_
-
     obj = 'min'
-    sqaod_exec = 1
-
 
     # Path to instances
-    #
     instance_name = instance_name_
     path_instances = "instancias/" + instance_name + "/"
-    path_resultados = "resultados-qubo/" + instance_name + "/"
 
+    # name of the instances
+    filename = "i" + str(num_instance) + "-" + instance_name
 
-    for iter1 in range(1):
-        # name of the instances
-        filename = "i" + str(iter1+1) + "-" + instance_name
+    # read the masses
+    mass_x, mass_y, mass_z = crear_masas(path_instances+filename)
 
-        mass_x, mass_y, mass_z = crear_masas(path_instances+filename)
+    print('\nSampling ...')
 
-        print('Type 1 masses {}'.format(mass_x))
-        print('Type 2 masses {}'.format(mass_y))
-        print('Type 3 masses {}'.format(mass_z))
+    num_calls = 10000
+    avg_energy = 0
+    avg_p1 = 0
+    avg_p2 = 0
 
-        print('\nMaximum weight Wp={}'.format(Wp))
+    for rep in range(num_calls):
+        assignment = np.arange(numvars)
+        for k in range(numvars):
+            assignment[k] = random.randint(0, 1)
 
+        val, energy = validationSol(mass_x, mass_y, mass_z, Npos, Wp, assignment, constant, 0)
+        penalty1 = quboAllocation_validation(assignment, mass_x, mass_y, mass_z, Npos, 0)
+        penalty2 = quboPayload_validation(assignment, mass_x, mass_y, mass_z, Npos, Wp, Npos, 1)  #1/1000
 
-        # Weight for the objective function. -1 for minimization and +1 for maximization
-        if obj=='min':
-            Wa = -1
-            find_max_val = False
-        else:
-            Wa = +1
-            find_max_val = True
+        avg_energy = avg_energy + energy
+        avg_p1 = avg_p1 + np.sum(penalty1)
+        avg_p2 = avg_p2 + penalty2
 
-        # Upper bound for the penalty weight
-        Weight = (sum(mass_x) + sum(mass_y) + sum(mass_z))
+    avg_energy = avg_energy / num_calls
+    avg_p1 = avg_p1 / num_calls
+    avg_p2 = avg_p2 / num_calls
 
+    print('avg-energy   = {}'.format(avg_energy))
+    print('avg-penalty1 = {}'.format(avg_p1))
+    print('avg-penalty2 = {}'.format(avg_p2))
 
-        # -1 for maximization and, +1 for minimization
-        if obj=='min':
-            Weight = +1*Weight
-        else:
-            Weight = -1*Weight
-
-        print('\nPenalty Weight {}'.format(Weight))
-
-
-
-        # Construye funcion QUBO
-        Q, constant, offset = quboEtotal(mass_x, mass_y, mass_z, Npos, Wp, xcgmin, xcgmax, xcge, We, xcgt, Len, S0, Wa, Weight)
-
-        print('\nNumber of terms in Q: {}'.format(len(Q)+1))
-        print('constant = {}'.format(constant))
-
-        # NUmber of variables in the problem
-        numvars = problem_size(Q)
-
-
-        print('\nSampling function ...')
-        num_calls = 10000
-        avg_energy = 0
-        avg_p1 = 0
-        avg_p2 = 0
-
-        for rep in range(num_calls):
-            assignment = np.arange(numvars)
-            for k in range(numvars):
-                assignment[k] = random.randint(0, 1)
-
-            val, energy = validationSol(mass_x, mass_y, mass_z, Npos, Wp, assignment, constant, 0)
-            penalty1 = quboAllocation_validation(assignment, mass_x, mass_y, mass_z, Npos, 0)
-            penalty2 = quboPayload_validation(assignment, mass_x, mass_y, mass_z, Npos, Wp, Npos, 1/1000)
-
-            avg_energy = avg_energy + energy
-            avg_p1 = avg_p1 + np.sum(penalty1)
-            avg_p2 = avg_p2 + penalty2
-
-        avg_energy = avg_energy / num_calls
-        avg_p1 = avg_p1 / num_calls
-        avg_p2 = avg_p2 / num_calls
-
-        print('\navg. energy={}'.format(avg_energy))
-        print('\navg. penalty1={}'.format(avg_p1))
-        print('\navg. penalty2={}'.format(avg_p2))
 
 
 
@@ -1917,9 +1869,9 @@ def sampling(Npos_, Wp_, Len_, We_, S0_, xcmin_, xcgmax_, xcge_, xcgt_, instance
 #
 def main_sqaod():
     # Parametros
-    Npos = 6
-    Wp = 200
-    Len = 6
+    Npos = 20
+    Wp = 500
+    Len = 20
     We = 120
     S0 = 220
     xcgmin = -0.1*Len
@@ -1933,14 +1885,16 @@ def main_sqaod():
 
     # Path to instances
     #
-    instance_name = "3-3-3"
+    instance_name = "10-10-10"
     path_instances = "instancias/" + instance_name + "/"
     path_resultados = "resultados-qubo/" + instance_name + "/"
+
 
 
     for iter1 in range(1):
         # name of the instances
         filename = "i" + str(iter1+1) + "-" + instance_name
+        print('Reading instance: {}\n'.format(filename))
 
         mass_x, mass_y, mass_z = crear_masas(path_instances+filename)
 
@@ -1948,10 +1902,14 @@ def main_sqaod():
         print('Type 2 masses {}'.format(mass_y))
         print('Type 3 masses {}'.format(mass_z))
 
-        print('\nMaximum weight Wp={}'.format(Wp))
+        print('\nParameters:')
+        print('Npos = {}'.format(Npos))
+        print('Wp = {}'.format(Wp))
+        print('Len = {}'.format(Len))
+        print('We = {}'.format(We))
+        print('S0 = {}'.format(S0))
 
-
-        # Weight for the objective function. -1 for minimization and +1 for maximization
+        # Problem statement. -1 for minimization and +1 for maximization
         if obj=='min':
             Wa = -1
             find_max_val = False
@@ -1960,7 +1918,7 @@ def main_sqaod():
             find_max_val = True
 
         # Upper bound for the penalty weight
-        Weight = (sum(mass_x) + sum(mass_y) + sum(mass_z))
+        Weight = (sum(mass_x) + sum(mass_y) + sum(mass_z))*Npos
 
 
         # -1 for maximization and, +1 for minimization
@@ -1969,23 +1927,27 @@ def main_sqaod():
         else:
             Weight = -1*Weight
 
-        print('\nPenalty Weight {}'.format(Weight))
-
-
+        print('\nConstructing qubo function Q:')
+        print('penalty_weight = {}'.format(Weight))
 
         # Construye funcion QUBO
-        Q, constant, offset = quboEtotal(mass_x, mass_y, mass_z, Npos, Wp, xcgmin, xcgmax, xcge, We, xcgt, Len, S0, Wa, Weight)
+        Q, constant, offset = quboEtotal(mass_x, mass_y, mass_z, Npos, Wp,
+                                        xcgmin, xcgmax, xcge, We, xcgt, Len,
+                                        S0, Wa, Weight)
 
-        print('\nNumber of terms in Q: {}'.format(len(Q)+1))
+        print('Dimension(Q) = {}'.format(len(Q)+1))
         print('constant = {}'.format(constant))
-        #print('{}'.format(Q))
 
 
         # save to file qubo model
         #numvars = writequbo(Q, filename+'-allocation', constant)
 
         numvars = problem_size(Q)
-        print('\nNumber of variables: {}'.format(numvars))
+        print('Number of variables = {}'.format(numvars))
+
+
+        # Sampling instances
+        #sampling(Npos, Wp, Len, We, S0, xcgmin, xcgmax, xcge, xcgt, numvars, constant, instance_name, 1)
 
         # CPLEX format
         #writequbo_cplex(Q, filename+'-allocation', constant)
@@ -2024,6 +1986,8 @@ def main_sqaod():
 
         cost_alloc = 0
         cost_payload = 0
+
+        print('\nCalling sqaod solver:')
 
         for k in range(num_calls):
             print('#{}'.format(k))
@@ -2140,157 +2104,6 @@ def main_sqaod():
         print("--- %s seconds ---" % (time.time() - start_time))
 
 
-#  Solve the problem using simulated annealing (D-Wave qbsolv)
-#
-def main_dwave():
-        # Parametros
-        Npos = 15
-        Wp = 260
-        Len = 15
-        We = 120
-        S0 = 220
-        xcgmin = -0.1*Len
-        xcgmax = 0.2*Len
-        xcge = -0.05*Len
-        xcgt = 0.1*Len
-
-        obj = 'min'
-        sqaod_exec = 1
-
-
-        # Path to instances
-        #
-        instance_name = "8-4-3"
-        path_instances = "instancias/" + instance_name + "/"
-        path_resultados = "resultados-qubo/" + instance_name + "/"
-
-
-        for iter1 in range(1):
-            # name of the instances
-            filename = "i" + str(iter1+1) + "-" + instance_name
-
-            mass_x, mass_y, mass_z = crear_masas(path_instances+filename)
-
-            print('Type 1 masses {}'.format(mass_x))
-            print('Type 2 masses {}'.format(mass_y))
-            print('Type 3 masses {}'.format(mass_z))
-
-            print('\nMaximum weight Wp={}'.format(Wp))
-
-
-            # Weight for the objective function. -1 for minimization and +1 for maximization
-            if obj=='min':
-                Wa = -1
-                find_max_val = False
-            else:
-                Wa = +1
-                find_max_val = True
-
-            # Upper bound for the penalty weight
-            Weight = (sum(mass_x) + sum(mass_y) + sum(mass_z))*Npos
-
-
-            # -1 for maximization and, +1 for minimization
-            if obj=='min':
-                Weight = +1*Weight
-            else:
-                Weight = -1*Weight
-
-            print('\nPenalty Weight {}'.format(Weight))
-
-
-
-            # Construye funcion QUBO
-            Q, constant, offset = quboEtotal(mass_x, mass_y, mass_z, Npos, Wp, xcgmin, xcgmax, xcge, We, xcgt, Len, S0, Wa, Weight)
-
-            print('\nNumber of terms in Q: {}'.format(len(Q)+1))
-            print('constant = {}'.format(constant))
-            #print('{}'.format(Q))
-
-
-            # save to file qubo model
-            #numvars = writequbo(Q, filename+'-allocation', constant)
-
-            numvars = problem_size(Q)
-
-            print('\nNumber of variables: {}'.format(numvars))
-
-
-            # CPLEX format
-            writequbo_cplex(Q, filename+'-allocation', constant)
-
-            if sqaod_exec==0:
-                continue
-
-
-            # - - - - - - - - - - - - - - - - - - - - -
-            #              Main program
-            # - - - - - - - - - - - - - - - - - - - - -
-
-            print('\n\n# # # # # # # # # # # Main program # # # # # # # # # # #\n\n')
-
-            print('qbsolv sampler calling ...')
-
-            # Number of calls to SimulatedAnnealingSampler
-            num_calls = 1000
-            # Size of a sub-problem
-            subqubo_size=30
-
-            # to save the best solution per call
-            all_solutions = {}
-            best_solution = {}
-            cnt = 0
-
-
-            for k in range(num_calls):
-                print('#{} '.format(k+1))
-                sampler = neal.SimulatedAnnealingSampler()
-                response = QBSolv().sample_qubo(Q, num_repeats=1000, solver=sampler, find_max=find_max_val, solver_limit=subqubo_size)
-                energies = response.data_vectors['energy'] + constant
-                solutions = list(response.samples())
-                print('{}'.format(energies))
-
-                # save all solutions and energies for analysis
-                all_solutions[k] = (energies, solutions)
-
-                for j in range(5):
-                    best_solution[cnt] = (energies[j], solutions[j])
-                    cnt=cnt+1
-
-
-
-            # Plot result
-            #
-            list_energies = [0 for i in range(cnt)]
-
-            if obj=='min':
-                best_energy = 10000
-            else:
-                best_energy = -10000
-
-            k= 0
-
-            for pair in best_solution:
-                (energy, sol) = best_solution[pair]
-                list_energies[k] = energy
-                k = k + 1
-
-
-
-            # Sort energies
-            #
-            list_energies.sort()
-            #print('\nBest energies: {}'.format(list_energies))
-
-
-            # pickle dump
-            pfile = open(path_resultados+filename+"-result", 'wb')
-            pickle.dump(all_solutions, pfile)
-            pfile.close()
-
-            pfile = open(path_resultados+filename+"-energies", 'wb')
-            pickle.dump(list_energies, pfile)
-            pfile.close()
 
 
 
@@ -2303,8 +2116,6 @@ def main_dwave():
 
 def main():
     main_sqaod()
-    #main_dwave()
-    #sampling()
 
 
 
